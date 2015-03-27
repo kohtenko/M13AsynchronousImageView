@@ -325,7 +325,7 @@
         });
     } else {
         //Our URL is to an external file, No caching, we do that ourselves.
-        NSURLRequest *request = [NSURLRequest requestWithURL:_fileURL cachePolicy:NSURLCacheStorageNotAllowed timeoutInterval:_timeoutInterval];
+        NSURLRequest *request = [NSURLRequest requestWithURL:_fileURL cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:_timeoutInterval];
         //Create a connection
         imageConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:NO];
         [imageConnection scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
