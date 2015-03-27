@@ -446,6 +446,11 @@
 
 @implementation UIImageView (M13AsynchronousImageView)
 
+
++ (void)setCacheLimit:(NSUInteger)cacheLimit{
+    [M13AsynchronousImageLoader defaultLoader].imageCache.countLimit = cacheLimit;
+}
+
 - (void)loadImageFromURL:(NSURL *)url
 {
     [self loadImageFromURL:url completion:nil];

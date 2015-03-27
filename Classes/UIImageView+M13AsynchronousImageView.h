@@ -113,6 +113,14 @@ typedef void (^M13AsynchronousImageLoaderCompletionBlock)(BOOL success, M13Async
 
 @interface UIImageView (M13AsynchronousImageView)
 /**
+ *  The maximum number of objects the image cache should hold.
+ *  Default value is 0 - unlimited
+ *
+ *  @param cacheLimit New value for maximum cache capacity of images
+ */
++ (void)setCacheLimit:(NSUInteger) cacheLimit;
+
+/**
  Load the image from the given URL, then set the loaded image to the image property.
  
  @param url The URL to download the image from.
