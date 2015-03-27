@@ -222,42 +222,30 @@
 
 - (void)cancelLoadingImageAtURL:(NSURL *)url
 {
-    NSMutableArray *objectsToRemove = [NSMutableArray array];
-    //Cancel all connections for the given target with the given URL.
-    for (M13AsynchronousImageLoaderConnection *connection in _connectionQueue) {
-        if ([connection.fileURL isEqual:url]) {
-            [connection cancelLoading];
-            [objectsToRemove addObject:connection];
-        }
-    }
-    //Remove those connections from the list.
-    [_connectionQueue removeObjectsInArray:objectsToRemove];
-    [_activeConnections removeObjectsInArray:objectsToRemove];
-    [self updateConnections];
+    [self cancelLoadingImageWithBlock:^BOOL(NSURL *_url, id _target) {
+        return [url isEqual:_url];
+    }];
 }
 
 - (void)cancelLoadingImagesForTarget:(id)target
 {
-    NSMutableArray *objectsToRemove = [NSMutableArray array];
-    //Cancel all connections for the given target.
-    for (M13AsynchronousImageLoaderConnection *connection in _connectionQueue) {
-        if (connection.target == target) {
-            [connection cancelLoading];
-            [objectsToRemove addObject:connection];
-        }
-    }
-    //Remove those connections from the list.
-    [_connectionQueue removeObjectsInArray:objectsToRemove];
-    [_activeConnections removeObjectsInArray:objectsToRemove];
-    [self updateConnections];
+    [self cancelLoadingImageWithBlock:^BOOL(NSURL *_url, id _target) {
+        return target == _target;
+    }];
 }
 
 - (void)cancelLoadingImageAtURL:(NSURL *)url target:(id)target
 {
+    [self cancelLoadingImageWithBlock:^BOOL(NSURL *_url, id _target) {
+        return target == _target && [url isEqual:_url];
+    }];
+}
+
+- (void)cancelLoadingImageWithBlock:(BOOL (^) (NSURL *_url, id _target))statementBlock {
     NSMutableArray *objectsToRemove = [NSMutableArray array];
-    //Cancel all connections for the given target with the given URL.
+    //Cancel connections when statementBlock returns YES
     for (M13AsynchronousImageLoaderConnection *connection in _connectionQueue) {
-        if (connection.target == target && [connection.fileURL isEqual:url]) {
+        if (statementBlock(connection.fileURL, connection.target)) {
             [connection cancelLoading];
             [objectsToRemove addObject:connection];
         }
@@ -460,12 +448,7 @@
 
 - (void)loadImageFromURL:(NSURL *)url
 {
-    [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
-        //Set the image if loaded
-        if (success) {
-            self.image = image;
-        }
-    }];
+    [self loadImageFromURL:url completion:nil];
 }
 
 - (void)loadImageFromURL:(NSURL *)url completion:(M13AsynchronousImageLoaderCompletionBlock)completion
