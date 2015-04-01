@@ -17,6 +17,7 @@
 @implementation LocalImagesTableViewController
 {
     NSMutableArray *localFileURLs;
+    NSArray *localCachePathes;
     UIImage *loadingImage;
 }
 
@@ -42,10 +43,13 @@
     localFileURLs = [NSMutableArray array];
     NSString *namesString = [NSString stringWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"localNames" ofType:@"txt"] encoding:NSUTF8StringEncoding error:nil];
     NSArray *fileNamesArray = [namesString componentsSeparatedByString:@"\n"];
-    
+    localCachePathes = fileNamesArray;
     for (int i = 0; i < fileNamesArray.count; i++) {
         NSString *fileName = fileNamesArray[i];
         NSURL *url = [[NSBundle mainBundle] URLForResource:[fileName stringByDeletingPathExtension] withExtension:[fileName pathExtension]];
+        NSURL *newURL = [[[[NSFileManager defaultManager] URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask] lastObject] URLByAppendingPathComponent:fileName];
+        [[NSFileManager defaultManager] copyItemAtURL:url toURL:newURL error:nil];
+        NSLog(@"url = %@", newURL);
         [localFileURLs addObject:url];
     }
 }
@@ -83,9 +87,11 @@
     [cell.loadedImageView cancelLoadingAllImages];
     
     //Load the new image
-    [cell.loadedImageView loadImageFromURL:localFileURLs[indexPath.row] completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
-        //This is where you would refresh the cell if need be. If a cell of basic style, just call "setNeedsRelayout" on the cell.
-    }];
+//    [cell.loadedImageView loadImageFromURL:localFileURLs[indexPath.row] completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
+//        //This is where you would refresh the cell if need be. If a cell of basic style, just call "setNeedsRelayout" on the cell.
+//    }];
+
+    [cell.loadedImageView loadImageFromCachePath:localCachePathes[indexPath.row]];
     
     return cell;
 }

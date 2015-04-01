@@ -148,7 +148,8 @@
     UIImage *image = [self.imageCache objectForKey:url];
     //If we have the image, return
     if (image) {
-        completion(YES, M13AsynchronousImageLoaderImageLoadedLocationCache, image, url, target);
+        if (completion)
+            completion(YES, M13AsynchronousImageLoaderImageLoadedLocationCache, image, url, target);
         return;
     }
     
@@ -164,7 +165,8 @@
         }
         
         //Run the completion block
-        completion(success, location, image, url, target);
+        if (completion)
+            completion(success, location, image, url, target);
         
         //Update the connections
         [self updateConnections];
@@ -451,6 +453,24 @@
     [M13AsynchronousImageLoader defaultLoader].imageCache.countLimit = cacheLimit;
 }
 
+- (void)loadImageFromCachePath:(NSString *)path{
+    [self loadImageFromCachePath:path completion:nil];
+}
+
+- (void)loadImageFromCachePath:(NSString *)path completion:(M13AsynchronousImageLoaderCompletionBlock)completion{
+    NSURL *url = [[[[NSFileManager defaultManager] URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask] lastObject] URLByAppendingPathComponent:path];
+    [self loadImageFromURL:url completion:completion];
+}
+
+- (void)loadImageFromDocumentPath:(NSString *)path{
+    [self loadImageFromDocumentPath:path completion:nil];
+}
+
+- (void)loadImageFromDocumentPath:(NSString *)path completion:(M13AsynchronousImageLoaderCompletionBlock)completion{
+    NSURL *url = [[[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask] lastObject] URLByAppendingPathComponent:path];
+    [self loadImageFromURL:url completion:completion];
+}
+
 - (void)loadImageFromURL:(NSURL *)url
 {
     [self loadImageFromURL:url completion:nil];
@@ -464,7 +484,8 @@
             self.image = image;
         }
         //Run the completion
-        completion(success, location, image, url, target);
+        if (completion)
+            completion(success, location, image, url, target);
     }];
 }
 
