@@ -153,12 +153,7 @@
         return;
     }
     
-    //Not in cache, load the image.
-    M13AsynchronousImageLoaderConnection *connection = [[M13AsynchronousImageLoaderConnection alloc] init];
-    connection.fileURL = url;
-    connection.target = target;
-    connection.timeoutInterval = _loadingTimeout;
-    [connection setCompletionBlock:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
+    void (^block) (BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) = ^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
         //Add the image to the cache
         if (success) {
             [self.imageCache setObject:image forKey:url];
@@ -170,7 +165,22 @@
         
         //Update the connections
         [self updateConnections];
-    }];
+    };
+    
+    for (M13AsynchronousImageLoaderConnection *connection in _connectionQueue) {
+        if ([connection.fileURL isEqual:url] && connection.target == target) {
+            [connection setCompletionBlock:block];
+        }
+        return;
+    }
+    
+    
+    //Not in cache, load the image.
+    M13AsynchronousImageLoaderConnection *connection = [[M13AsynchronousImageLoaderConnection alloc] init];
+    connection.fileURL = url;
+    connection.target = target;
+    connection.timeoutInterval = _loadingTimeout;
+    [connection setCompletionBlock:block];
     
     //Add the connection to the queue
     [_connectionQueue addObject:connection];
