@@ -203,7 +203,8 @@
                 M13AsynchronousImageLoaderImageLoadedLocation location = [queuedConnection.fileURL isFileURL] ? M13AsynchronousImageLoaderImageLoadedLocationLocalFile : M13AsynchronousImageLoaderImageLoadedLocationExternalFile;
                 //Run the completion.
                 M13AsynchronousImageLoaderCompletionBlock completion = queuedConnection.completionBlock;
-                completion(YES, location, [self.imageCache objectForKey:queuedConnection.fileURL], queuedConnection.fileURL, queuedConnection.target);
+                UIImage *image = [self.imageCache objectForKey:queuedConnection.fileURL];
+                completion(image, location, image, queuedConnection.fileURL, queuedConnection.target);
             }
         }
     }
