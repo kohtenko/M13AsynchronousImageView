@@ -214,7 +214,7 @@
                 //Run the completion.
                 M13AsynchronousImageLoaderCompletionBlock completion = queuedConnection.completionBlock;
                 UIImage *image = [self.imageCache objectForKey:queuedConnection.fileURL];
-                completion(image, location, image, queuedConnection.fileURL, queuedConnection.target);
+                completion(image != nil, location, image, queuedConnection.fileURL, queuedConnection.target);
             }
         }
     }
