@@ -141,8 +141,12 @@
 {
     [self loadImageAtURL:url target:nil completion:nil];
 }
-
 - (void)loadImageAtURL:(NSURL *)url target:(id)target completion:(M13AsynchronousImageLoaderCompletionBlock)completion
+{
+    [self loadImageAtURL:url fileURL:nil target:target completion:completion];
+}
+
+- (void)loadImageAtURL:(NSURL *)url fileURL:(NSURL *)fileURL target:(id)target completion:(M13AsynchronousImageLoaderCompletionBlock)completion
 {
     //Try loading the image from the cache first.
     UIImage *image = [self.imageCache objectForKey:url];
@@ -153,10 +157,21 @@
         return;
     }
     
+    //Try loading the image from the fileURL second.
+    image = [UIImage imageWithContentsOfFile:fileURL.path];
+    if (image) {
+        if (completion)
+            completion(YES, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, image, url, target);
+        return;
+    }
+    
     void (^block) (BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) = ^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
         //Add the image to the cache
         if (success) {
             [self.imageCache setObject:image forKey:url];
+            if (fileURL) {
+                [UIImagePNGRepresentation(image) writeToURL:fileURL atomically:YES];
+            }
         }
         
         //Run the completion block
@@ -486,10 +501,18 @@
 {
     [self loadImageFromURL:url completion:nil];
 }
-
+- (void)loadImageFromURL:(NSURL *)url toFileURL:(NSURL *)fileURL
+{
+    [self loadImageFromURL:url toFileURL:fileURL completion:nil];
+}
 - (void)loadImageFromURL:(NSURL *)url completion:(M13AsynchronousImageLoaderCompletionBlock)completion
 {
-    [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
+    [self loadImageFromURL:url toFileURL:nil completion:completion];
+}
+
+- (void)loadImageFromURL:(NSURL *)url toFileURL:(NSURL *)fileURL completion:(M13AsynchronousImageLoaderCompletionBlock)completion
+{
+    [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url fileURL:fileURL target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
         //Set the image if loaded
         if (success) {
             self.image = image;

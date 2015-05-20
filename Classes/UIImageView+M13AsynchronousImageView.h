@@ -127,6 +127,13 @@ typedef void (^M13AsynchronousImageLoaderCompletionBlock)(BOOL success, M13Async
  */
 - (void)loadImageFromURL:(NSURL * __nonnull)url;
 /**
+ Load the image from the given URL to fileURL, then set the loaded image to the image property.
+ 
+ @param url The URL to download the image from.
+ @param fileURL    The URL to save the image to.
+ */
+- (void)loadImageFromURL:(NSURL * __nonnull)url toFileURL:(NSURL * __nullable)fileURL;
+/**
  Loads the image from the given URL. Then set the loaded image to the image property. After the image is finished loading, the completion block will be run.
  
  @note If using this method in a table or collection view, one will likely have to refresh the cell containing the image view once the image has been set; If the location value in the completion block is not from the cache. If it is from the cache, the image was set immediatly, and no additional action should be required.
@@ -135,6 +142,18 @@ typedef void (^M13AsynchronousImageLoaderCompletionBlock)(BOOL success, M13Async
  @param completion The completion block to run once the image has been downloaded.
  */
 - (void)loadImageFromURL:(NSURL * __nonnull)url completion:(M13AsynchronousImageLoaderCompletionBlock __nullable)completion;
+
+/**
+ Loads the image from the given URL to fileURL. Then set the loaded image to the image property. After the image is finished loading, the completion block will be run.
+ 
+ @note If using this method in a table or collection view, one will likely have to refresh the cell containing the image view once the image has been set; If the location value in the completion block is not from the cache. If it is from the cache, the image was set immediatly, and no additional action should be required.
+ 
+ @param url        The URL to load the image from.
+ @param fileURL    The URL to save the image to.
+ @param completion The completion block to run once the image has been downloaded.
+ */
+- (void)loadImageFromURL:(NSURL * __nonnull)url toFileURL:(NSURL * __nullable)fileURL completion:(M13AsynchronousImageLoaderCompletionBlock __nullable)completion;
+
 /**
  Cancels loading all the images set to load for the image view.
  */
