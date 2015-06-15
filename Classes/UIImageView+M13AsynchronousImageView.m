@@ -160,6 +160,7 @@
     //Try loading the image from the fileURL second.
     image = [UIImage imageWithContentsOfFile:fileURL.path];
     if (image) {
+        [self.imageCache setObject:image forKey:url];
         if (completion)
             completion(YES, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, image, url, target);
         return;
