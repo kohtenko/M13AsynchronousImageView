@@ -30,6 +30,11 @@
  */
 @property (nonatomic, copy) M13AsynchronousImageLoaderCompletionBlock completionBlock;
 /**
+ *  array of completion blocks associated with one connection
+ */
+@property (nonatomic, strong) NSMutableArray *completionBlocks;
+
+/**
  The completion block to run once the image has loaded.
  
  @param completionBlock The completion block to run.
@@ -184,10 +189,10 @@
     };
     
     for (M13AsynchronousImageLoaderConnection *connection in _connectionQueue) {
-        if ([connection.fileURL isEqual:url] && connection.target == target) {
+        if ([connection.fileURL isEqual:url]) {
             [connection setCompletionBlock:block];
+            return;
         }
-        return;
     }
     
     
@@ -300,7 +305,16 @@
 
 - (void)setCompletionBlock:(M13AsynchronousImageLoaderCompletionBlock)completionBlock
 {
-    _completionBlock = completionBlock;
+    if (!self.completionBlocks){
+        self.completionBlocks = [NSMutableArray array];
+        __weak M13AsynchronousImageLoaderConnection *weakSelf = self;
+        _completionBlock = ^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
+            for (M13AsynchronousImageLoaderCompletionBlock block in weakSelf.completionBlocks) {
+                block(success, location, image, url, target);
+            }
+        };
+    }
+    [self.completionBlocks addObject:completionBlock];
 }
 
 - (void)startLoading
