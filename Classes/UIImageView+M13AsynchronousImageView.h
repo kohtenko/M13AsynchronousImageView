@@ -64,7 +64,7 @@ typedef void (^M13AsynchronousImageLoaderCompletionBlock)(BOOL success, M13Async
  */
 - (void)loadImageAtURL:(NSURL *__nonnull)url;
 /**
- Load the image at the given URL. When the image has loaded then perform the given completion block.
+ Loads the image at the given URL. When the image has loaded then perform the given completion block.
  
  @note The URL can be internal or external.
  
@@ -73,6 +73,17 @@ typedef void (^M13AsynchronousImageLoaderCompletionBlock)(BOOL success, M13Async
  @param completion The completion block to run when finished loading the image.
  */
 - (void)loadImageAtURL:(NSURL *__nonnull)url target:(id __nullable)target completion:(M13AsynchronousImageLoaderCompletionBlock __nullable)completion;
+/**
+ Loads the image at the given URL and stores it at fileURL. When the image has loaded then perform the given completion block.
+ 
+ @note The URL can be internal or external.
+ 
+ @param url    The URL to load the image from.
+ @param fileURL    The URL to store the image to.
+ @param target The target of the image loading.
+ @param completion The completion block to run when finished loading the image.
+ */
+- (void)loadImageAtURL:(NSURL *__nonnull)url fileURL:(NSURL *__nullable)fileURL target:(id __nullable)target completion:(M13AsynchronousImageLoaderCompletionBlock __nullable)completion;
 /**
  Cancels loading the image at the given URL.
  
