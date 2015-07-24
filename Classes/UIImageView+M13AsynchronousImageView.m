@@ -33,7 +33,13 @@
  *  array of completion blocks associated with one connection
  */
 @property (nonatomic, strong) NSMutableArray *completionBlocks;
-
+/**
+ Loads image into memory in background thread.
+ 
+ @param image UIImage object loaded with NSData or from filePath.
+ @param completionBlock The completion block of image loading into memory.
+ */
++ (void)forceImageToDescompress:(UIImage *)image completionHandler:(void(^)(UIImage * image))handler;
 /**
  The completion block to run once the image has loaded.
  
@@ -165,9 +171,11 @@
     //Try loading the image from the fileURL second.
     image = [UIImage imageWithContentsOfFile:fileURL.path];
     if (image) {
-        [self.imageCache setObject:image forKey:url];
-        if (completion)
-            completion(YES, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, image, url, target);
+        [M13AsynchronousImageLoaderConnection forceImageToDescompress:image completionHandler:^(UIImage *image) {
+            [self.imageCache setObject:image forKey:url];
+            if (completion)
+                completion(YES, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, image, url, target);
+        }];
         return;
     }
     
@@ -303,6 +311,26 @@
     NSMutableData *imageData;
 }
 
++ (void)forceImageToDescompress:(UIImage *)image completionHandler:(void(^)(UIImage * image))handler{
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        if (image) {
+            UIImage *imageObject;
+            //Force image to decompress. UIImage deffers decompression until the image is displayed on screen.
+            UIGraphicsBeginImageContextWithOptions(image.size, NO, image.scale);
+            [image drawAtPoint:CGPointZero];
+            imageObject = UIGraphicsGetImageFromCurrentImageContext();
+            UIGraphicsEndImageContext();
+            dispatch_async(dispatch_get_main_queue(), ^{
+                handler(imageObject);
+            });
+        } else {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                handler(nil);
+            });
+        }
+    });
+}
+
 - (void)setCompletionBlock:(M13AsynchronousImageLoaderCompletionBlock)completionBlock
 {
     if (!self.completionBlocks){
@@ -336,36 +364,15 @@
     loading = YES;
     
     if ([_fileURL isFileURL]) {
-        //Our URL is to a file on the disk, load it asynchronously
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:_fileURL]];
-            
-            if (image) {
-                //Force image to decompress. UIImage deffers decompression until the image is displayed on screen.
-                UIGraphicsBeginImageContextWithOptions(image.size, NO, image.scale);
-                [image drawAtPoint:CGPointZero];
-                image = UIGraphicsGetImageFromCurrentImageContext();
-                UIGraphicsEndImageContext();
-                
-                //Success
-                finished = YES;
-                loading = NO;
-                
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    _completionBlock(YES, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target);
-                });
-                
-            } else {
-                //Failure
-                
-                finished = YES;
-                loading = NO;
-                
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, nil, _fileURL, _target);
-                });
-            }
-        });
+        UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:_fileURL]];
+        [M13AsynchronousImageLoaderConnection forceImageToDescompress:image completionHandler:^(UIImage *image) {
+            finished = YES;
+            loading = NO;
+            if (image)
+                _completionBlock(YES, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target);
+            else
+                _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, nil, _fileURL, _target);
+        }];
     } else {
         //Our URL is to an external file, No caching, we do that ourselves.
         NSURLRequest *request = [NSURLRequest requestWithURL:_fileURL cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:_timeoutInterval];
@@ -431,9 +438,9 @@
     NSLog(@"Failed To Load Image: %@", error.localizedDescription);
     
     dispatch_async(dispatch_get_main_queue(), ^{
-         _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, nil, _fileURL, _target);
+        _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, nil, _fileURL, _target);
     });
-   
+    
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
@@ -448,40 +455,14 @@
     
     if (receivedData) {
         //Still need to work in the background, not the main thread
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            //Create the image from the data
-            UIImage *image = [UIImage imageWithData:imageData];
-            
-            imageData = nil;
-            imageConnection = nil;
-            
-            if (image) {
-                
-                //Force image to decompress. UIImage deffers decompression until the image is displayed on screen.
-                UIGraphicsBeginImageContextWithOptions(image.size, NO, image.scale);
-                [image drawAtPoint:CGPointZero];
-                image = UIGraphicsGetImageFromCurrentImageContext();
-                UIGraphicsEndImageContext();
-                
-                //Success
-                finished = YES;
-                loading = NO;
-                
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    _completionBlock(YES, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target);
-                });
-                
-            } else {
-                //Failure
-                
-                finished = YES;
-                loading = NO;
-                
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, nil, _fileURL, _target);
-                });
-            }
-        });
+        UIImage *image = [UIImage imageWithData:imageData];
+        imageData = nil;
+        imageConnection = nil;
+        [M13AsynchronousImageLoaderConnection forceImageToDescompress:image completionHandler:^(UIImage *image) {
+            finished = YES;
+            loading = NO;
+            _completionBlock(YES, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target);
+        }];
     }
 }
 
