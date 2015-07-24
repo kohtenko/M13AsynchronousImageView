@@ -184,7 +184,9 @@
         if (success) {
             [self.imageCache setObject:image forKey:url];
             if (fileURL) {
-                [UIImagePNGRepresentation(image) writeToURL:fileURL atomically:YES];
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    [UIImagePNGRepresentation(image) writeToURL:fileURL atomically:YES];
+                });
             }
         }
         
