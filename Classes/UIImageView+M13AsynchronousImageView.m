@@ -510,6 +510,7 @@
 
 - (void)loadImageFromURL:(NSURL *)url toFileURL:(NSURL *)fileURL completion:(M13AsynchronousImageLoaderCompletionBlock)completion
 {
+    self.image = nil;
     [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url fileURL:fileURL target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
         //Set the image if loaded
         if (success) {
