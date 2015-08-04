@@ -463,7 +463,7 @@
         [M13AsynchronousImageLoaderConnection forceImageToDescompress:image completionHandler:^(UIImage *image) {
             finished = YES;
             loading = NO;
-            _completionBlock(image, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target);
+            _completionBlock(image != nil, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target);
         }];
     }
 }
