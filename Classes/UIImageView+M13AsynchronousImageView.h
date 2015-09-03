@@ -22,7 +22,7 @@ typedef enum {
  @param url     The URL of the image.
  @param target  The designated target for loading the image if a target exists. (Usually a UIImageView.)
  */
-typedef void (^M13AsynchronousImageLoaderCompletionBlock)(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *__nullable image, NSURL *__nullable url, id __nullable target);
+typedef void (^M13AsynchronousImageLoaderCompletionBlock)(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *__nullable image, NSURL *__nullable url, id __nullable target, NSData *__nullable imageData);
 
 @interface M13AsynchronousImageLoader : NSObject
 

@@ -14,6 +14,10 @@
 @interface M13AsynchronousImageLoaderConnection : NSObject <NSURLConnectionDelegate, NSURLConnectionDataDelegate>
 
 /**
+ The NSData of downloaded image.
+ */
+@property (nonatomic, strong) NSMutableData *imageData;
+/**
  The URL of the file to load.
  */
 @property (nonatomic, strong) NSURL *fileURL;
@@ -164,7 +168,7 @@
     //If we have the image, return
     if (image) {
         if (completion)
-            completion(YES, M13AsynchronousImageLoaderImageLoadedLocationCache, image, url, target);
+            completion(YES, M13AsynchronousImageLoaderImageLoadedLocationCache, image, url, target, nil);
         return;
     }
     
@@ -174,25 +178,25 @@
         [M13AsynchronousImageLoaderConnection forceImageToDescompress:image completionHandler:^(UIImage *image) {
             [self.imageCache setObject:image forKey:url];
             if (completion)
-                completion(YES, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, image, url, target);
+                completion(YES, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, image, url, target, nil);
         }];
         return;
     }
     
-    void (^block) (BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) = ^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
+    M13AsynchronousImageLoaderCompletionBlock block = ^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target, NSData *imageData) {
         //Add the image to the cache
         if (success) {
             [self.imageCache setObject:image forKey:url];
             if (fileURL) {
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    [UIImagePNGRepresentation(image) writeToURL:fileURL atomically:YES];
+                    [imageData writeToURL:fileURL atomically:YES];
                 });
             }
         }
         
         //Run the completion block
         if (completion)
-            completion(success, location, image, url, target);
+            completion(success, location, image, url, target, imageData);
         
         //Update the connections
         [self updateConnections];
@@ -245,7 +249,7 @@
                 //Run the completion.
                 M13AsynchronousImageLoaderCompletionBlock completion = queuedConnection.completionBlock;
                 UIImage *image = [self.imageCache objectForKey:queuedConnection.fileURL];
-                completion(image != nil, location, image, queuedConnection.fileURL, queuedConnection.target);
+                completion(image != nil, location, image, queuedConnection.fileURL, queuedConnection.target, queuedConnection.imageData);
             }
         }
     }
@@ -310,7 +314,6 @@
     BOOL finished;
     BOOL canceled;
     NSURLConnection *imageConnection;
-    NSMutableData *imageData;
 }
 
 + (void)forceImageToDescompress:(UIImage *)image completionHandler:(void(^)(UIImage * image))handler{
@@ -358,9 +361,9 @@
     if (!self.completionBlocks){
         self.completionBlocks = [NSMutableArray array];
         __weak M13AsynchronousImageLoaderConnection *weakSelf = self;
-        _completionBlock = ^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
+        _completionBlock = ^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target, NSData *imageData) {
             for (M13AsynchronousImageLoaderCompletionBlock block in weakSelf.completionBlocks) {
-                block(success, location, image, url, target);
+                block(success, location, image, url, target, imageData);
             }
         };
     }
@@ -378,7 +381,7 @@
     if (_fileURL == nil) {
         //Fail
         finished = YES;
-        _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationNone, nil, nil, _target);
+        _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationNone, nil, nil, _target, nil);
         return;
     }
     
@@ -386,14 +389,15 @@
     loading = YES;
     
     if ([_fileURL isFileURL]) {
-        UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:_fileURL]];
+        NSData *data = [NSData dataWithContentsOfURL:_fileURL];
+        UIImage *image = [UIImage imageWithData:data];
         [M13AsynchronousImageLoaderConnection forceImageToDescompress:image completionHandler:^(UIImage *image) {
             finished = YES;
             loading = NO;
             if (image)
-                _completionBlock(YES, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target);
+                _completionBlock(YES, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target, data);
             else
-                _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, nil, _fileURL, _target);
+                _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, nil, _fileURL, _target, data);
         }];
     } else {
         //Our URL is to an external file, No caching, we do that ourselves.
@@ -422,7 +426,7 @@
     finished = YES;
     [imageConnection cancel];
     imageConnection = nil;
-    imageData = nil;
+    self.imageData = nil;
 }
 
 - (BOOL)isLoading
@@ -438,20 +442,20 @@
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
 {
     //Setup to collect image data
-    imageData = [NSMutableData data];
+    self.imageData = [NSMutableData data];
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
 {
     //Add the received data to the image data
     receivedData = YES;
-    [imageData appendData:data];
+    [self.imageData appendData:data];
 }
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
     //Connection failed, failed to load image.
-    imageData = nil;
+    self.imageData = nil;
     imageConnection = nil;
     
     finished = YES;
@@ -460,7 +464,7 @@
     NSLog(@"Failed To Load Image: %@", error.localizedDescription);
     
     dispatch_async(dispatch_get_main_queue(), ^{
-        _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, nil, _fileURL, _target);
+        _completionBlock(NO, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, nil, _fileURL, _target, nil);
     });
     
 }
@@ -469,7 +473,7 @@
 {
     //Canceled, no need to process image.
     if (canceled) {
-        imageData = nil;
+        self.imageData = nil;
         [imageConnection cancel];
         imageConnection = nil;
         return;
@@ -477,13 +481,13 @@
     
     if (receivedData) {
         //Still need to work in the background, not the main thread
-        UIImage *image = [UIImage imageWithData:imageData];
-        imageData = nil;
+        UIImage *image = [UIImage imageWithData:self.imageData];
         imageConnection = nil;
         [M13AsynchronousImageLoaderConnection forceImageToDescompress:image completionHandler:^(UIImage *image) {
             finished = YES;
             loading = NO;
-            _completionBlock(image != nil, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target);
+            _completionBlock(image != nil, M13AsynchronousImageLoaderImageLoadedLocationExternalFile, image, _fileURL, _target, self.imageData);
+            self.imageData = nil;
         }];
     }
 }
@@ -531,14 +535,14 @@
 - (void)loadImageFromURL:(NSURL *)url toFileURL:(NSURL *)fileURL completion:(M13AsynchronousImageLoaderCompletionBlock)completion
 {
     self.image = nil;
-    [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url fileURL:fileURL target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target) {
+    [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url fileURL:fileURL target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target, NSData* imageData) {
         //Set the image if loaded
         if (success) {
             self.image = image;
         }
         //Run the completion
         if (completion)
-            completion(success, location, image, url, target);
+            completion(success, location, image, url, target, imageData);
     }];
 }
 
