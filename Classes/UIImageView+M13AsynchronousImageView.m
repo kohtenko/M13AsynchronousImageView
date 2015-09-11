@@ -163,64 +163,68 @@
 
 - (void)loadImageAtURL:(NSURL *)url fileURL:(NSURL *)fileURL target:(id)target completion:(M13AsynchronousImageLoaderCompletionBlock)completion
 {
-    //Try loading the image from the cache first.
-    UIImage *image = [self.imageCache objectForKey:url];
-    //If we have the image, return
-    if (image) {
-        if (completion)
-            completion(YES, M13AsynchronousImageLoaderImageLoadedLocationCache, image, url, target, nil);
-        return;
-    }
-    
-    //Try loading the image from the fileURL second.
-    image = [UIImage imageWithContentsOfFile:fileURL.path];
-    if (image) {
-        [M13AsynchronousImageLoaderConnection forceImageToDescompress:image completionHandler:^(UIImage *image) {
-            [self.imageCache setObject:image forKey:url];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        //Try loading the image from the cache first.
+        UIImage *image = [self.imageCache objectForKey:url];
+        //If we have the image, return
+        if (image) {
             if (completion)
-                completion(YES, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, image, url, target, nil);
-        }];
-        return;
-    }
-    
-    M13AsynchronousImageLoaderCompletionBlock block = ^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target, NSData *imageData) {
-        //Add the image to the cache
-        if (success) {
-            [self.imageCache setObject:image forKey:url];
-            if (fileURL) {
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    [imageData writeToURL:fileURL atomically:YES];
-                });
+                completion(YES, M13AsynchronousImageLoaderImageLoadedLocationCache, image, url, target, nil);
+            return;
+        }
+        
+        //Try loading the image from the fileURL second.
+        image = [UIImage imageWithContentsOfFile:fileURL.path];
+        if (image) {
+            [M13AsynchronousImageLoaderConnection forceImageToDescompress:image completionHandler:^(UIImage *image) {
+                [self.imageCache setObject:image forKey:url];
+                if (completion)
+                    completion(YES, M13AsynchronousImageLoaderImageLoadedLocationLocalFile, image, url, target, nil);
+            }];
+            return;
+        }
+        
+        M13AsynchronousImageLoaderCompletionBlock block = ^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target, NSData *imageData) {
+            //Add the image to the cache
+            if (success) {
+                [self.imageCache setObject:image forKey:url];
+                if (fileURL) {
+                    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                        [imageData writeToURL:fileURL atomically:YES];
+                    });
+                }
+            }
+            
+            //Run the completion block
+            if (completion)
+                completion(success, location, image, url, target, imageData);
+            
+            //Update the connections
+            [self updateConnections];
+        };
+        
+        for (M13AsynchronousImageLoaderConnection *connection in _connectionQueue) {
+            if ([connection.fileURL isEqual:url]) {
+                [connection setCompletionBlock:block];
+                return;
             }
         }
         
-        //Run the completion block
-        if (completion)
-            completion(success, location, image, url, target, imageData);
         
+        //Not in cache, load the image.
+        M13AsynchronousImageLoaderConnection *connection = [[M13AsynchronousImageLoaderConnection alloc] init];
+        connection.fileURL = url;
+        connection.target = target;
+        connection.timeoutInterval = _loadingTimeout;
+        [connection setCompletionBlock:block];
+        
+        //Add the connection to the queue
+        [_connectionQueue addObject:connection];
         //Update the connections
         [self updateConnections];
-    };
-    
-    for (M13AsynchronousImageLoaderConnection *connection in _connectionQueue) {
-        if ([connection.fileURL isEqual:url]) {
-            [connection setCompletionBlock:block];
-            return;
-        }
-    }
-    
-    
-    //Not in cache, load the image.
-    M13AsynchronousImageLoaderConnection *connection = [[M13AsynchronousImageLoaderConnection alloc] init];
-    connection.fileURL = url;
-    connection.target = target;
-    connection.timeoutInterval = _loadingTimeout;
-    [connection setCompletionBlock:block];
-    
-    //Add the connection to the queue
-    [_connectionQueue addObject:connection];
-    //Update the connections
-    [self updateConnections];
+        
+    });
 }
 
 
@@ -536,13 +540,17 @@
 {
     self.image = nil;
     [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url fileURL:fileURL target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target, NSData* imageData) {
-        //Set the image if loaded
-        if (success) {
-            self.image = image;
-        }
-        //Run the completion
-        if (completion)
-            completion(success, location, image, url, target, imageData);
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            //Set the image if loaded
+            if (success) {
+                self.image = image;
+            }
+            //Run the completion
+            if (completion){
+                completion(success, location, image, url, target, imageData);
+            }
+        });
     }];
 }
 
