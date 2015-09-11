@@ -7,6 +7,7 @@
 //
 
 #import "UIImageView+M13AsynchronousImageView.h"
+#import <objc/runtime.h>
 
 /**
  The base class that outlines the interface for loading image files.
@@ -498,6 +499,7 @@
 
 @end
 
+static const void *UIImageViewCurrentFileURLKey;
 @implementation UIImageView (M13AsynchronousImageView)
 
 
@@ -539,8 +541,9 @@
 - (void)loadImageFromURL:(NSURL *)url toFileURL:(NSURL *)fileURL completion:(M13AsynchronousImageLoaderCompletionBlock)completion
 {
     self.image = nil;
-    [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url fileURL:fileURL target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url, id target, NSData* imageData) {
-        
+    [self setCurrentFileURL:url];
+    [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url fileURL:fileURL target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url_loaded, id target, NSData* imageData) {
+        if ([url_loaded isEqual:[self currentFileURL]] && !self.image)
         dispatch_async(dispatch_get_main_queue(), ^{
             //Set the image if loaded
             if (success) {
@@ -551,7 +554,18 @@
                 completion(success, location, image, url, target, imageData);
             }
         });
+        else
+            NSLog(@"isEqual not");
     }];
+}
+
+- (NSURL *)currentFileURL {
+    NSURL *result = (NSURL *)objc_getAssociatedObject(self, &UIImageViewCurrentFileURLKey);
+    return result;
+}
+
+- (void)setCurrentFileURL:(NSURL *)fileURL{
+    objc_setAssociatedObject(self, &UIImageViewCurrentFileURLKey, fileURL, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (void)cancelLoadingAllImages
