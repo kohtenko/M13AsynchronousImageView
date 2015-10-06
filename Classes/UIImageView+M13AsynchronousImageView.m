@@ -540,6 +540,7 @@ static const void *UIImageViewCurrentFileURLKey;
 
 - (void)loadImageFromURL:(NSURL *)url toFileURL:(NSURL *)fileURL completion:(M13AsynchronousImageLoaderCompletionBlock)completion
 {
+    if ([url isEqual:[self currentFileURL]]) return;
     self.image = nil;
     [self setCurrentFileURL:url];
     [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url fileURL:fileURL target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url_loaded, id target, NSData* imageData) {
