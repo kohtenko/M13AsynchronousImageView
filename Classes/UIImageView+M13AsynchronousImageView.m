@@ -501,6 +501,7 @@
 
 @end
 
+static const void *UIImageViewObserverKey;
 static const void *UIImageViewCurrentFileURLKey;
 @implementation UIImageView (M13AsynchronousImageView)
 
@@ -546,29 +547,58 @@ static const void *UIImageViewCurrentFileURLKey;
     self.image = nil;
     [self setCurrentFileURL:url];
     [[M13AsynchronousImageLoader defaultLoader] loadImageAtURL:url fileURL:fileURL target:self completion:^(BOOL success, M13AsynchronousImageLoaderImageLoadedLocation location, UIImage *image, NSURL *url_loaded, id target, NSData* imageData) {
-        if ([url_loaded isEqual:[self currentFileURL]] && !self.image)
+        
         dispatch_async(dispatch_get_main_queue(), ^{
-            //Set the image if loaded
-            if (success) {
-                self.image = image;
-            }
+            if ([url_loaded isEqual:[self currentFileURL]] && !self.image)
+                //Set the image if loaded
+                if (success) {
+                    self.image = image;
+                }
             //Run the completion
             if (completion){
                 completion(success, location, image, url, target, imageData);
             }
+            else
+                NSLog(@"isEqual not");
+            
         });
-        else
-            NSLog(@"isEqual not");
     }];
 }
 
 - (NSURL *)currentFileURL {
+    if (![self isObserverConnected]){
+        [self addObserver:self forKeyPath:@"image" options:NSKeyValueObservingOptionNew context:nil];
+        [self observerConnect:YES];
+    }
     NSURL *result = (NSURL *)objc_getAssociatedObject(self, &UIImageViewCurrentFileURLKey);
     return result;
 }
 
 - (void)setCurrentFileURL:(NSURL *)fileURL{
     objc_setAssociatedObject(self, &UIImageViewCurrentFileURLKey, fileURL, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (BOOL)isObserverConnected {
+    NSNumber *result = (NSNumber *)objc_getAssociatedObject(self, &UIImageViewObserverKey);
+    return [result boolValue];
+}
+
+- (void)observerConnect:(BOOL)observer{
+    objc_setAssociatedObject(self, &UIImageViewObserverKey, @(observer), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSString *,id> *)change context:(void *)context{
+    if([keyPath isEqualToString:@"image"]){
+        if([change[@"new"] isKindOfClass:[NSNull class]]){
+            [self setCurrentFileURL:nil];
+        }
+    }
+}
+
+- (void)dealloc{
+    if ([self isObserverConnected]){
+        [self removeObserver:self forKeyPath:@"image"];
+    }
 }
 
 - (void)cancelLoadingAllImages
