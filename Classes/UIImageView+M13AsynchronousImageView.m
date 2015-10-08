@@ -201,8 +201,10 @@
             if (completion)
                 completion(success, location, image, url, target, imageData);
             
-            //Update the connections
-            [self updateConnections];
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                //Update the connections
+                [self updateConnections];
+            });
         };
         
         for (M13AsynchronousImageLoaderConnection *connection in _connectionQueue) {
